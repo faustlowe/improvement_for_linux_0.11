@@ -80,12 +80,15 @@ reschedule:
 _system_call:
 	cmpl $nr_system_calls-1,%eax
 	ja bad_sys_call
+	pushl %cr3
 	push %ds
 	push %es
 	push %fs
 	pushl %edx
 	pushl %ecx		# push %ebx,%ecx,%edx as parameters
 	pushl %ebx		# to the system call
+	xorl %edx,%edx	##kernel cr3 is at 0x0
+	movl %edx,%cr3	##set cr3 to move kernel page
 	movl $0x10,%edx		# set up ds,es to kernel space
 	mov %dx,%ds
 	mov %dx,%es
@@ -125,6 +128,7 @@ ret_from_sys_call:
 	pop %fs
 	pop %es
 	pop %ds
+	pop %cr3
 	iret
 
 .align 2
