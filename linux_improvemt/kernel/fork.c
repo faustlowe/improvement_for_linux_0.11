@@ -38,24 +38,35 @@ void verify_area(void * addr,int size)
 
 int copy_mem(int nr,struct task_struct * p)
 {
+	
+	unsigned long kernel_data_base,kernel_data_limit;
 	unsigned long old_data_base,new_data_base,data_limit;
+	// unsigned long data_limit;
 	unsigned long old_code_base,new_code_base,code_limit;
+	// unsigned long code_limit;
+	unsigned long * old_page_dir = current->tss.cr3;
+	unsigned long * new_page_dir = p->tss.cr3;
 
+	kernel_data_base = 0x0;
+	kernel_data_limit = 1*1024*1024;
 	code_limit=get_limit(0x0f);
 	data_limit=get_limit(0x17);
-	//old_code_base = get_base(current->ldt[1]);
-	//old_data_base = get_base(current->ldt[2]);
+	old_code_base = get_base(current->ldt[1]);
+	old_data_base = get_base(current->ldt[2]);
 	if (old_data_base != old_code_base)
 		panic("We don't support separate I&D");
 	if (data_limit < code_limit)
 		panic("Bad data_limit");
-	new_data_base = new_code_base = 0x0;
+	new_data_base = new_code_base = 0x400000;
 	p->start_code = new_code_base;
 	set_base(p->ldt[1],new_code_base);
 	set_base(p->ldt[2],new_data_base);
-	unsigned long * old_page_dir = current->tss.cr3;
-	unsigned long * new_page_dir = p->tss.cr3;
-	if (copy_page_tables(old_page_dir,new_page_dir,data_limit)) {
+	if (copy_page_tables(old_page_dir,new_page_dir,kernel_data_base,kernel_data_base,kernel_data_limit)){	//kernel base is same for every process
+		print("no mem for kernel,free_page_tables:from copy_mem\n");
+		free_page_tables(new_page_dir,kernel_data_limit);
+		return -ENOMEM;
+	}
+	if (copy_page_tables(old_page_dir,new_page_dir,old_data_base,new_data_base,data_limit)) {
 		printk("free_page_tables: from copy_mem\n");
 		free_page_tables(new_page_dir,data_limit);
 		return -ENOMEM;

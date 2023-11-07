@@ -148,20 +148,23 @@ int free_page_tables(unsigned long * from_pag_dir,unsigned long size)
  * 1 Mb-range, so the pages can be shared with the kernel. Thus the
  * special case for nr=xxxx.
  */
-int copy_page_tables(unsigned long * from_page_dir,unsigned long * to_page_dir,long size)
+int copy_page_tables(unsigned long * from_page_dir,unsigned long * to_page_dir,unsigned long from_base,unsigned long to_base,unsigned long size)
 {										// I use from_page_dir(come from current->tss.cr3,father-p's page-dir address),and to_page_dir(come from p->tss.cr3,kid-p' page-dir address)
 	unsigned long * from_page_table;
 	unsigned long * to_page_table;
 	unsigned long this_page;
 	unsigned long * from_dir, * to_dir;
 	unsigned long nr;
+	unsigned long size_dir;
 
 	if ((((unsigned long)from_page_dir)&0xfff) || (((unsigned long)to_page_dir)&0xfff))
 		panic("page dir have error address");
-	from_dir = from_page_dir; /* _pg_dir = 0 */
-	to_dir = to_page_dir;
-	size = ((unsigned) (size+0x3fffff)) >> 22;
-	for( ; size-->0 ; from_dir++,to_dir++) {
+	if ((from_base&0x3fffff) || (to_base&0x3fffff))						//base align with page_dir
+		panic("copy_page_tables called with wrong alignment");
+	from_dir = from_page_dir + (from_base>>22);
+	to_dir = to_page_dir + (to_base>>22);
+	size_dir = ((unsigned) (size+0x3fffff)) >> 22;
+	for( ; size_dir-->0 ; from_dir++,to_dir++) {
 		if (1 & *to_dir)
 			panic("copy_page_tables: already exist");
 		if (!(1 & *from_dir))
@@ -170,7 +173,11 @@ int copy_page_tables(unsigned long * from_page_dir,unsigned long * to_page_dir,l
 		if (!(to_page_table = (unsigned long *) get_free_page()))
 			return -1;	/* Out of memory, see freeing */
 		*to_dir = ((unsigned long) to_page_table) | 7;
-		nr = (((unsigned long) from_page_dir)==0)?0xA0:1024;
+		if (!((unsigned long) from_page_dir==0)){
+			nr = 1024;
+		}else{
+			nr = (size == 1*1024*1024)?256:160;			//if from is process-0,just need copy 160 page,if from is kernel,copy 1M,else copy all pages
+		}
 		for ( ; nr-- > 0 ; from_page_table++,to_page_table++) {
 			this_page = *from_page_table;
 			if (!(1 & this_page))

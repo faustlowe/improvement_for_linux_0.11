@@ -26,8 +26,8 @@
 #define NULL ((void *) 0)
 #endif
 
-extern int copy_page_tables(unsigned long from, unsigned long to, long size);
-extern int free_page_tables(unsigned long from, unsigned long size);
+extern int copy_page_tables(unsigned long * from_page_dir,unsigned long * to_page_dir,unsigned long from_base,unsigned long to_base,unsigned long size);
+extern int free_page_tables(unsigned long * from_pag_dir,unsigned long size);
 
 extern void sched_init(void);
 extern void schedule(void);
