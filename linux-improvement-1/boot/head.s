@@ -113,18 +113,7 @@ setup_gdt:
  * using 4 of them to span 16 Mb of physical memory. People with
  * more than 16MB will have to expand this.
  */
-#.org 0x1000
-#pg0:
-
-#.org 0x2000
-#pg1:
-
-#.org 0x3000
-#pg2:
-
-#.org 0x4000
-#pg3:
-.org 0x401000  # I set 1024 space for page dir and page table
+.org 0x1000 #don't set page-table in kernel anymore
 /*
  * tmp_floppy_area is used by the floppy-driver when DMA cannot
  * reach to a buffer-block. It needs to be aligned, so that it isn't
@@ -197,17 +186,21 @@ ignore_int:
  */
 .align 2
 setup_paging:
-	movl $1024*1025,%ecx		/* 5 pages - pg_dir+4 page tables */
+	movl $1024,%ecx		/* clean page dir */
 	xorl %eax,%eax
 	xorl %edi,%edi			/* pg_dir is at 0x000 */
 	cld;rep;stosl
+	movl $1024*1024,%ecx #clean page table
+	xorl %eax,%eax
+	movl $0x400000,%edi
+	cld;rep;stosl
 	movl $pg_dir+4092,%edi
-	movl $0x400007,%eax		/*set pg_dir */
+	movl $0x7ff007,%eax		/*set pg_dir */
 	std
 1:	stosl
 	subl $0x1000,%eax
 	jge 1b
-	movl $0x400000+4092,%edi
+	movl $0x7ff000+4092,%edi
 	movl $0xfffff007,%eax		/*  4GB - 4096 + 7 (r/w user,p) */
 	std
 2:	stosl			/* fill pages backwards - more efficient :-) */
